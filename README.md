@@ -27,6 +27,34 @@
   <a href="https://paypal.me/phelpsben" title="Donate"><img alt="GitHub Sponsors" src="https://img.shields.io/github/sponsors/benphelps"></a>
 </p>
 
+# Custom Fork: Config Editor
+
+This fork adds a **web-based YAML config editor** accessible from the Homepage UI via a gear icon in the footer. It provides a visual way to manage all Homepage configuration files without manually editing YAML.
+
+### Config Editor Features
+
+- **Dual-mode editing** - Switch between a structured form view and a syntax-highlighted YAML editor (CodeMirror)
+- **All config files supported** - Services, Bookmarks, Widgets, Settings, Proxmox, Docker, and Kubernetes
+- **Form view** - Structured fields with icon previews, collapsible sections, add/remove/reorder items
+- **Auto-backup** - Creates `.bak` files before every save, with one-click restore
+- **Live reload** - Automatically triggers Homepage revalidation after saving changes
+
+### Building the Custom Image
+
+```bash
+cd ~/dockers/homepage
+sudo docker compose build
+sudo docker compose up -d
+```
+
+### Pulling Upstream Updates
+
+```bash
+~/dockers/homepage/update.sh
+```
+
+---
+
 # Features
 
 With features like quick search, bookmarks, weather support, a wide range of integrations and widgets, an elegant and modern design, and a focus on performance, Homepage is your ideal start to the day and a handy companion throughout it.
