@@ -35,6 +35,10 @@ const ColorToggle = dynamic(() => import("components/toggles/color"), {
   ssr: false,
 });
 
+const ConfigEditorToggle = dynamic(() => import("components/toggles/config-editor"), {
+  ssr: false,
+});
+
 const Version = dynamic(() => import("components/version"), {
   ssr: false,
 });
@@ -498,6 +502,7 @@ function Home({ initialSettings }) {
 
         <div id="footer" className="flex flex-col mt-auto p-8 w-full">
           <div id="style" className="flex w-full justify-end">
+            <ConfigEditorToggle />
             {!settings?.color && <ColorToggle />}
             <Revalidate />
             {!settings.theme && <ThemeToggle />}
