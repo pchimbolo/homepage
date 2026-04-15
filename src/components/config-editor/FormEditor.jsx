@@ -183,6 +183,102 @@ function serializeForSchema(schema, data) {
   return null;
 }
 
+// Reorder array helper
+function reorder(list, fromIndex, toIndex) {
+  const result = [...list];
+  const [removed] = result.splice(fromIndex, 1);
+  result.splice(toIndex, 0, removed);
+  return result;
+}
+
+// Drag-and-drop list wrapper
+function DraggableList({ items, onReorder, renderItem, className = "space-y-4" }) {
+  const dragItem = useRef(null);
+  const dragOverItem = useRef(null);
+  const dragHalfRef = useRef(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [dragOverHalf, setDragOverHalf] = useState(null); // "top" or "bottom"
+
+  const handleDragStart = (idx) => {
+    dragItem.current = idx;
+  };
+
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const half = e.clientY < midY ? "top" : "bottom";
+
+    dragOverItem.current = idx;
+    dragHalfRef.current = half;
+    setDragOverIdx(idx);
+    setDragOverHalf(half);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIdx(null);
+    setDragOverHalf(null);
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
+      const from = dragItem.current;
+      let to = dragOverItem.current;
+
+      // When hovering on the bottom half, drop AFTER that item
+      if (dragHalfRef.current === "bottom" && to > from) {
+        // Dragging down, bottom half — target is correct as-is
+      } else if (dragHalfRef.current === "top" && to < from) {
+        // Dragging up, top half — target is correct as-is
+      } else if (dragHalfRef.current === "bottom" && to < from) {
+        // Dragging up, bottom half — place after the target
+        to = to + 1;
+      } else if (dragHalfRef.current === "top" && to > from) {
+        // Dragging down, top half — place before the target
+        to = to - 1;
+      }
+
+      if (from !== to) {
+        onReorder(reorder(items, from, to));
+      }
+    }
+    dragItem.current = null;
+    dragOverItem.current = null;
+    dragHalfRef.current = null;
+    setDragOverIdx(null);
+    setDragOverHalf(null);
+  };
+
+  return (
+    <div className={className}>
+      {items.map((item, idx) => {
+        const isOver = dragOverIdx === idx && dragItem.current !== idx;
+        const showTop = isOver && dragOverHalf === "top";
+        const showBottom = isOver && dragOverHalf === "bottom";
+        const isDragging = dragItem.current === idx;
+
+        return (
+          <div
+            key={idx}
+            draggable
+            onDragStart={() => handleDragStart(idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragLeave={handleDragLeave}
+            onDragEnd={handleDragEnd}
+            style={{
+              borderTop: showTop ? "2px solid #3b82f6" : "2px solid transparent",
+              borderBottom: showBottom ? "2px solid #3b82f6" : "2px solid transparent",
+              opacity: isDragging ? 0.5 : 1,
+            }}
+          >
+            {renderItem(item, idx)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Collapsible section wrapper
 function CollapsibleSection({ title, defaultOpen = true, onDelete, children }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -194,7 +290,7 @@ function CollapsibleSection({ title, defaultOpen = true, onDelete, children }) {
         onClick={() => setOpen(!open)}
       >
         <div className="flex items-center gap-2">
-          <MdDragIndicator className="text-neutral-500 w-4 h-4" />
+          <MdDragIndicator className="text-neutral-500 w-4 h-4 cursor-grab active:cursor-grabbing" />
           {open ? (
             <MdExpandLess className="text-neutral-400 w-5 h-5" />
           ) : (
@@ -278,109 +374,126 @@ function GroupedItemsEditor({ data, schema, onChange }) {
     onChange(newData);
   };
 
+  const reorderGroups = (newGroups) => onChange(newGroups);
+
+  const reorderItems = (groupIdx, newItems) => {
+    const newData = [...groups];
+    newData[groupIdx] = { ...newData[groupIdx], items: newItems };
+    onChange(newData);
+  };
+
   return (
     <div className="space-y-4">
-      {groups.map((group, groupIdx) => (
-        <CollapsibleSection
-          key={groupIdx}
-          title={group?.name || `Group ${groupIdx + 1}`}
-          onDelete={() => deleteGroup(groupIdx)}
-        >
-          <div className="mb-3">
-            <label className="text-xs font-medium text-neutral-400">Group Name</label>
-            <input
-              type="text"
-              value={group?.name || ""}
-              onChange={(e) => updateGroup(groupIdx, { ...group, name: e.target.value })}
-              className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+      <DraggableList
+        items={groups}
+        onReorder={reorderGroups}
+        renderItem={(group, groupIdx) => (
+          <CollapsibleSection
+            title={group?.name || `Group ${groupIdx + 1}`}
+            onDelete={() => deleteGroup(groupIdx)}
+          >
+            <div className="mb-3">
+              <label className="text-xs font-medium text-neutral-400">Group Name</label>
+              <input
+                type="text"
+                value={group?.name || ""}
+                onChange={(e) => updateGroup(groupIdx, { ...group, name: e.target.value })}
+                className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
 
-          <div className="space-y-3 ml-2">
-            {safeArray(group?.items).map((item, itemIdx) => (
-              <CollapsibleSection
-                key={itemIdx}
-                title={item?.name || `${schema.itemLabel} ${itemIdx + 1}`}
-                defaultOpen={false}
-                onDelete={() => deleteItem(groupIdx, itemIdx)}
-              >
-                <div className="mb-2">
-                  <label className="text-xs font-medium text-neutral-400">{schema.itemLabel} Name</label>
-                  <input
-                    type="text"
-                    value={item?.name || ""}
-                    onChange={(e) => updateItem(groupIdx, itemIdx, { ...item, name: e.target.value })}
-                    className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
+            <div className="ml-2">
+              <DraggableList
+                items={safeArray(group?.items)}
+                onReorder={(newItems) => reorderItems(groupIdx, newItems)}
+                className="space-y-3"
+                renderItem={(item, itemIdx) => (
+                  <CollapsibleSection
+                    title={item?.name || `${schema.itemLabel} ${itemIdx + 1}`}
+                    defaultOpen={false}
+                    onDelete={() => deleteItem(groupIdx, itemIdx)}
+                  >
+                    <div className="mb-2">
+                      <label className="text-xs font-medium text-neutral-400">{schema.itemLabel} Name</label>
+                      <input
+                        type="text"
+                        value={item?.name || ""}
+                        onChange={(e) => updateItem(groupIdx, itemIdx, { ...item, name: e.target.value })}
+                        className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
 
-                {item?.icon && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <img
-                      src={item.icon}
-                      alt=""
-                      className="w-6 h-6 rounded"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                    <span className="text-xs text-neutral-500">Icon preview</span>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {safeArray(schema.fields).map((field) =>
-                    renderField(field, item?.[field.key], (val) =>
-                      updateItem(groupIdx, itemIdx, { ...item, [field.key]: val }),
-                    ),
-                  )}
-                </div>
-
-                {safeArray(schema.nestedObjects).map((nested) => (
-                  <div key={nested.key} className="mt-3">
-                    <CollapsibleSection
-                      title={nested.label}
-                      defaultOpen={!!item?.[nested.key]}
-                    >
-                      {!item?.[nested.key] ? (
-                        <AddButton
-                          label={`Add ${nested.label}`}
-                          onClick={() =>
-                            updateItem(groupIdx, itemIdx, { ...item, [nested.key]: {} })
-                          }
+                    {item?.icon && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <img
+                          src={item.icon}
+                          alt=""
+                          className="w-6 h-6 rounded"
+                          onError={(e) => { e.target.style.display = "none"; }}
                         />
-                      ) : (
-                        <>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {safeArray(nested.fields).map((field) =>
-                              renderField(field, item[nested.key]?.[field.key], (val) =>
-                                updateItem(groupIdx, itemIdx, {
-                                  ...item,
-                                  [nested.key]: { ...item[nested.key], [field.key]: val },
-                                }),
-                              ),
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newItem = { ...item };
-                              delete newItem[nested.key];
-                              updateItem(groupIdx, itemIdx, newItem);
-                            }}
-                            className="mt-2 text-xs text-red-400 hover:text-red-300"
-                          >
-                            Remove {nested.label}
-                          </button>
-                        </>
+                        <span className="text-xs text-neutral-500">Icon preview</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {safeArray(schema.fields).map((field) =>
+                        renderField(field, item?.[field.key], (val) =>
+                          updateItem(groupIdx, itemIdx, { ...item, [field.key]: val }),
+                        ),
                       )}
-                    </CollapsibleSection>
-                  </div>
-                ))}
-              </CollapsibleSection>
-            ))}
-            <AddButton label={`Add ${schema.itemLabel}`} onClick={() => addItem(groupIdx)} />
-          </div>
-        </CollapsibleSection>
-      ))}
+                    </div>
+
+                    {safeArray(schema.nestedObjects).map((nested) => (
+                      <div key={nested.key} className="mt-3">
+                        <CollapsibleSection
+                          title={nested.label}
+                          defaultOpen={!!item?.[nested.key]}
+                        >
+                          {!item?.[nested.key] ? (
+                            <AddButton
+                              label={`Add ${nested.label}`}
+                              onClick={() =>
+                                updateItem(groupIdx, itemIdx, { ...item, [nested.key]: {} })
+                              }
+                            />
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {safeArray(nested.fields).map((field) =>
+                                  renderField(field, item[nested.key]?.[field.key], (val) =>
+                                    updateItem(groupIdx, itemIdx, {
+                                      ...item,
+                                      [nested.key]: { ...item[nested.key], [field.key]: val },
+                                    }),
+                                  ),
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newItem = { ...item };
+                                  delete newItem[nested.key];
+                                  updateItem(groupIdx, itemIdx, newItem);
+                                }}
+                                className="mt-2 text-xs text-red-400 hover:text-red-300"
+                              >
+                                Remove {nested.label}
+                              </button>
+                            </>
+                          )}
+                        </CollapsibleSection>
+                      </div>
+                    ))}
+                  </CollapsibleSection>
+                )}
+              />
+              <div className="mt-3">
+                <AddButton label={`Add ${schema.itemLabel}`} onClick={() => addItem(groupIdx)} />
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
+      />
       <AddButton label="Add Group" onClick={addGroup} />
     </div>
   );
@@ -410,40 +523,43 @@ function WidgetListEditor({ data, schema, onChange }) {
 
   return (
     <div className="space-y-4">
-      {widgets.map((widget, idx) => {
-        const typeFields = safeArray(schema.widgetTypes?.[widget?.type]);
-        const isEmpty = Object.keys(widget || {}).filter((k) => k !== "type").length === 0;
-        return (
-          <CollapsibleSection
-            key={idx}
-            title={`${widget?.type || "unknown"} widget`}
-            defaultOpen={isEmpty}
-            onDelete={() => deleteWidget(idx)}
-          >
-            <div className="mb-3">
-              <label className="text-xs font-medium text-neutral-400">Widget Type</label>
-              <select
-                value={widget?.type || ""}
-                onChange={(e) => updateWidget(idx, { type: e.target.value })}
-                className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                {Object.keys(schema.widgetTypes || {}).map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {typeFields.map((field) =>
-                renderField(field, getNestedValue(widget, field.key), (val) =>
-                  updateWidget(idx, setNestedValue(widget, field.key, val)),
-                ),
-              )}
-            </div>
-          </CollapsibleSection>
-        );
-      })}
+      <DraggableList
+        items={widgets}
+        onReorder={(newWidgets) => onChange(newWidgets)}
+        renderItem={(widget, idx) => {
+          const typeFields = safeArray(schema.widgetTypes?.[widget?.type]);
+          const isEmpty = Object.keys(widget || {}).filter((k) => k !== "type").length === 0;
+          return (
+            <CollapsibleSection
+              title={`${widget?.type || "unknown"} widget`}
+              defaultOpen={isEmpty}
+              onDelete={() => deleteWidget(idx)}
+            >
+              <div className="mb-3">
+                <label className="text-xs font-medium text-neutral-400">Widget Type</label>
+                <select
+                  value={widget?.type || ""}
+                  onChange={(e) => updateWidget(idx, { type: e.target.value })}
+                  className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {Object.keys(schema.widgetTypes || {}).map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {typeFields.map((field) =>
+                  renderField(field, getNestedValue(widget, field.key), (val) =>
+                    updateWidget(idx, setNestedValue(widget, field.key, val)),
+                  ),
+                )}
+              </div>
+            </CollapsibleSection>
+          );
+        }}
+      />
       <AddButton label="Add Widget" onClick={addWidget} />
     </div>
   );
@@ -485,30 +601,33 @@ function NamedObjectsEditor({ data, schema, onChange }) {
 
   return (
     <div className="space-y-4">
-      {items.map((item, idx) => (
-        <CollapsibleSection
-          key={idx}
-          title={item?.name || `${schema.itemLabel} ${idx + 1}`}
-          onDelete={() => deleteItem(idx)}
-        >
-          <div className="mb-3">
-            <label className="text-xs font-medium text-neutral-400">{schema.itemLabel} Name</label>
-            <input
-              type="text"
-              value={item?.name || ""}
-              onChange={(e) => updateItem(idx, { ...item, name: e.target.value })}
-              className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {safeArray(schema.fields).map((field) =>
-              renderField(field, item?.[field.key], (val) =>
-                updateItem(idx, { ...item, [field.key]: val }),
-              ),
-            )}
-          </div>
-        </CollapsibleSection>
-      ))}
+      <DraggableList
+        items={items}
+        onReorder={(newItems) => onChange(newItems)}
+        renderItem={(item, idx) => (
+          <CollapsibleSection
+            title={item?.name || `${schema.itemLabel} ${idx + 1}`}
+            onDelete={() => deleteItem(idx)}
+          >
+            <div className="mb-3">
+              <label className="text-xs font-medium text-neutral-400">{schema.itemLabel} Name</label>
+              <input
+                type="text"
+                value={item?.name || ""}
+                onChange={(e) => updateItem(idx, { ...item, name: e.target.value })}
+                className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {safeArray(schema.fields).map((field) =>
+                renderField(field, item?.[field.key], (val) =>
+                  updateItem(idx, { ...item, [field.key]: val }),
+                ),
+              )}
+            </div>
+          </CollapsibleSection>
+        )}
+      />
       <AddButton label={`Add ${schema.itemLabel}`} onClick={addItem} />
     </div>
   );
