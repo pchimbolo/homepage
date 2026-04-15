@@ -23,7 +23,7 @@ export default function ProxmoxStatus({ service, style }) {
     }
 
     if (data.status === "stopped") {
-      statusLabel = t("docker.exited");
+      statusLabel = t("docker.offline");
       colorClass = "text-orange-400/50 dark:text-orange-400/80";
     }
 
