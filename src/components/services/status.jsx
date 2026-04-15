@@ -36,7 +36,7 @@ export default function Status({ service, style }) {
 
     if (data.status === "not found" || data.status === "exited" || data.status?.startsWith("partial")) {
       if (data.status === "not found") statusLabel = t("docker.not_found");
-      else if (data.status === "exited") statusLabel = t("docker.exited");
+      else if (data.status === "exited") statusLabel = t("docker.offline");
       else statusLabel = data.status.replace("partial", t("docker.partial"));
       colorClass = "text-orange-400/50 dark:text-orange-400/80";
     }
