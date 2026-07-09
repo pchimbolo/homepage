@@ -16,13 +16,24 @@ export async function widgetsFromConfig() {
   if (!widgets) return [];
 
   // map easy to write YAML objects into easy to consume JS arrays
-  const widgetsArray = widgets.map((group, index) => ({
-    type: Object.keys(group)[0],
-    options: {
-      index,
-      ...group[Object.keys(group)[0]],
-    },
-  }));
+  const widgetsArray = widgets
+    // Widgets explicitly disabled in the config editor are hidden from the display.
+    // Filter before indexing so indices stay consistent between the public widgets
+    // response and the private options lookup (both derive from this function).
+    .filter((group) => {
+      const config = group[Object.keys(group)[0]];
+      return !(config && typeof config === "object" && config.enabled === false);
+    })
+    .map((group, index) => {
+      const { enabled, ...rest } = group[Object.keys(group)[0]] || {};
+      return {
+        type: Object.keys(group)[0],
+        options: {
+          index,
+          ...rest,
+        },
+      };
+    });
   return widgetsArray;
 }
 

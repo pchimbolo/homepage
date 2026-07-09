@@ -155,6 +155,19 @@ describe("utils/config/service-helpers", () => {
     expect(state.logger.warn).toHaveBeenCalled();
   });
 
+  it("servicesFromConfig hides services flagged enabled: false", async () => {
+    state.servicesYaml = [
+      {
+        Main: [{ Shown: { icon: "a" } }, { Hidden: { icon: "b", enabled: false } }],
+      },
+    ];
+
+    const mod = await import("./service-helpers");
+    const groups = await mod.servicesFromConfig();
+
+    expect(groups[0].services.map((s) => s.name)).toEqual(["Shown"]);
+  });
+
   it("cleanServiceGroups normalizes weights, moves widget->widgets, and parses per-widget settings", async () => {
     const mod = await import("./service-helpers");
     const { cleanServiceGroups } = mod;

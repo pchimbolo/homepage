@@ -3,6 +3,7 @@ import { stringify, parse } from "yaml";
 import { MdAdd, MdDelete, MdExpandMore, MdExpandLess, MdDragIndicator } from "react-icons/md";
 import { renderField } from "./FormFields";
 import schemas from "utils/config-editor/schemas";
+import { resolveIconUrl } from "utils/config-editor/icon-url";
 
 // Get nested value from object using dot-notation key
 function getNestedValue(obj, key) {
@@ -277,40 +278,100 @@ function DraggableList({ items, onReorder, renderItem, className = "space-y-4" }
   );
 }
 
-// Collapsible section wrapper
-function CollapsibleSection({ title, defaultOpen = true, onDelete, onDragStart, children }) {
+// Set/clear an item's `enabled` flag. Enabled is the default, so we only ever
+// persist `enabled: false` and remove the key entirely when re-enabled.
+function withEnabled(item, isEnabled) {
+  const next = { ...item };
+  if (isEnabled) {
+    delete next.enabled;
+  } else {
+    next.enabled = false;
+  }
+  return next;
+}
+
+// Small on/off switch used to enable/disable items
+function ToggleSwitch({ enabled, onToggle }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      title={enabled ? "Enabled — showing on homepage. Click to disable." : "Disabled — hidden from homepage. Click to enable."}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(!enabled);
+      }}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+        enabled ? "bg-blue-600" : "bg-neutral-600"
+      }`}
+    >
+      <span
+        className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+        style={{ transform: enabled ? "translateX(1.125rem)" : "translateX(0.125rem)" }}
+      />
+    </button>
+  );
+}
+
+// Collapsible section wrapper. When `onToggle` is provided, an enable/disable
+// switch is shown; a disabled item is dimmed and marked "Disabled".
+function CollapsibleSection({ title, defaultOpen = true, onDelete, onDragStart, enabled, onToggle, iconUrl, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  const disabled = onToggle && enabled === false;
 
   return (
-    <div className="border border-neutral-700 rounded-lg overflow-hidden">
+    <div className={`border border-neutral-700 rounded-lg overflow-hidden ${disabled ? "opacity-60" : ""}`}>
       <div
         draggable={!!onDragStart}
         onDragStart={onDragStart}
         className="flex items-center justify-between px-3 py-2 bg-neutral-800 cursor-pointer hover:bg-neutral-750"
         onClick={() => setOpen(!open)}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <MdDragIndicator className={`text-neutral-500 w-4 h-4 ${onDragStart ? "cursor-grab active:cursor-grabbing" : ""}`} />
           {open ? (
             <MdExpandLess className="text-neutral-400 w-5 h-5" />
           ) : (
             <MdExpandMore className="text-neutral-400 w-5 h-5" />
           )}
-          <span className="text-sm font-medium text-neutral-200">{title}</span>
+          {iconUrl && (
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-neutral-700/60">
+              <img
+                src={iconUrl}
+                alt=""
+                className="h-4 w-4 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
+              />
+            </span>
+          )}
+          <span className={`text-sm font-medium truncate ${disabled ? "text-neutral-500 line-through" : "text-neutral-200"}`}>
+            {title}
+          </span>
+          {disabled && (
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-400 flex-shrink-0">
+              Disabled
+            </span>
+          )}
         </div>
-        {onDelete && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="text-red-400 hover:text-red-300 p-1"
-            title="Delete"
-          >
-            <MdDelete className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onToggle && <ToggleSwitch enabled={enabled !== false} onToggle={onToggle} />}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="text-red-400 hover:text-red-300 p-1"
+              title="Delete"
+            >
+              <MdDelete className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
       {open && <div className="p-3 space-y-3">{children}</div>}
     </div>
@@ -490,6 +551,9 @@ function GroupedItemsEditor({ data, schema, onChange }) {
                       defaultOpen={false}
                       onDelete={() => deleteItem(groupIdx, itemIdx)}
                       onDragStart={() => handleItemDragStart(groupIdx, itemIdx)}
+                      enabled={item?.enabled !== false}
+                      onToggle={(next) => updateItem(groupIdx, itemIdx, withEnabled(item, next))}
+                      iconUrl={resolveIconUrl(item?.icon)}
                     >
                       <div className="mb-2">
                         <label className="text-xs font-medium text-neutral-400">{schema.itemLabel} Name</label>
@@ -500,18 +564,6 @@ function GroupedItemsEditor({ data, schema, onChange }) {
                           className="w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-neutral-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
-
-                      {item?.icon && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <img
-                            src={item.icon}
-                            alt=""
-                            className="w-6 h-6 rounded"
-                            onError={(e) => { e.target.style.display = "none"; }}
-                          />
-                          <span className="text-xs text-neutral-500">Icon preview</span>
-                        </div>
-                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {safeArray(schema.fields).map((field) =>
@@ -614,6 +666,8 @@ function WidgetListEditor({ data, schema, onChange }) {
               defaultOpen={isEmpty}
               onDelete={() => deleteWidget(idx)}
               onDragStart={onDragStart}
+              enabled={widget?.enabled !== false}
+              onToggle={(next) => updateWidget(idx, withEnabled(widget, next))}
             >
               <div className="mb-3">
                 <label className="text-xs font-medium text-neutral-400">Widget Type</label>

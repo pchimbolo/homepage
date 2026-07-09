@@ -1,5 +1,5 @@
 const serviceFields = [
-  { key: "icon", label: "Icon", type: "url", placeholder: "https://example.com/icon.png" },
+  { key: "icon", label: "Icon", type: "icon", placeholder: "plex.png, sh-foo, or https://…" },
   { key: "href", label: "URL", type: "url", placeholder: "https://example.com" },
   { key: "description", label: "Description", type: "text", placeholder: "Service description" },
   { key: "target", label: "Target", type: "select", options: ["_self", "_blank"] },

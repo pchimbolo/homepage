@@ -15,7 +15,7 @@ const widgetTypes = {
     { key: "format.timeStyle", label: "Time Style", type: "select", options: ["full", "long", "medium", "short"] },
   ],
   logo: [
-    { key: "icon", label: "Icon URL", type: "url" },
+    { key: "icon", label: "Icon", type: "icon" },
     { key: "href", label: "Link URL", type: "url" },
     { key: "target", label: "Target", type: "select", options: ["_self", "_blank"] },
     { key: "width", label: "Width", type: "text", placeholder: "32px" },

@@ -45,6 +45,21 @@ describe("utils/config/widget-helpers", () => {
     ]);
   });
 
+  it("widgetsFromConfig hides widgets flagged enabled: false and re-indexes the rest", async () => {
+    fs.readFile.mockResolvedValueOnce("ignored");
+    yaml.load.mockReturnValueOnce([
+      { datetime: { enabled: false } },
+      { search: { provider: "google" } },
+      { resources: true },
+    ]);
+
+    const widgets = await widgetsFromConfig();
+    expect(widgets).toEqual([
+      { type: "search", options: { index: 0, provider: "google" } },
+      { type: "resources", options: { index: 1 } },
+    ]);
+  });
+
   it("cleanWidgetGroups removes private options and hides url except for search/glances", async () => {
     const cleaned = await cleanWidgetGroups([
       { type: "search", options: { index: 0, url: "http://x", username: "u", password: "p" } },

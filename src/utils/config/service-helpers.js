@@ -30,6 +30,10 @@ function parseServicesToGroups(services) {
         logger.warn(`Error parsing service "${entryName}" from config. Ensure required fields are present.`);
         return;
       }
+      // Items explicitly disabled in the config editor are hidden from the display
+      if (!Array.isArray(entries[entryName]) && entries[entryName].enabled === false) {
+        return;
+      }
       if (Array.isArray(entries[entryName])) {
         groups = groups.concat(parseServicesToGroups([{ [entryName]: entries[entryName] }]));
       } else {

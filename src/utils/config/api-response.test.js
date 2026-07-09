@@ -86,6 +86,17 @@ describe("utils/config/api-response", () => {
     expect(res.map((g) => g.name)).toEqual(["A", "C"]);
   });
 
+  it("bookmarksResponse hides bookmarks flagged enabled: false", async () => {
+    fs.readFile.mockResolvedValueOnce("ignored");
+    config.getSettings.mockResolvedValueOnce({});
+    yaml.load.mockReturnValueOnce([
+      { A: [{ Shown: [{ href: "a" }] }, { Hidden: [{ href: "b", enabled: false }] }] },
+    ]);
+
+    const res = await bookmarksResponse();
+    expect(res[0].bookmarks.map((b) => b.name)).toEqual(["Shown"]);
+  });
+
   it("widgetsResponse returns sanitized configured widgets", async () => {
     widgetHelpers.widgetsFromConfig.mockResolvedValueOnce([{ type: "search", options: { url: "x" } }]);
     widgetHelpers.cleanWidgetGroups.mockResolvedValueOnce([{ type: "search", options: { index: 0 } }]);

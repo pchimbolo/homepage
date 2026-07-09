@@ -47,10 +47,13 @@ export async function bookmarksResponse() {
   // map easy to write YAML objects into easy to consume JS arrays
   const bookmarksArray = bookmarks.map((group) => ({
     name: Object.keys(group)[0],
-    bookmarks: group[Object.keys(group)[0]].map((entries) => ({
-      name: Object.keys(entries)[0],
-      ...entries[Object.keys(entries)[0]][0],
-    })),
+    bookmarks: group[Object.keys(group)[0]]
+      // Items explicitly disabled in the config editor are hidden from the display
+      .filter((entries) => entries[Object.keys(entries)[0]][0]?.enabled !== false)
+      .map((entries) => ({
+        name: Object.keys(entries)[0],
+        ...entries[Object.keys(entries)[0]][0],
+      })),
   }));
 
   const sortedGroups = [];
