@@ -1,0 +1,25 @@
+# Lives in homepage-src/deploy/. The build context is the deployment root two levels
+# up (the directory that holds homepage-src/ and config/), so the Dockerfile's
+# `COPY homepage-src/ .` resolves correctly. `name:` pins the Compose project so it
+# stays "homepage" regardless of which directory you run compose from.
+name: homepage
+
+services:
+  homepage:
+    build:
+      context: ../..
+      dockerfile: homepage-src/deploy/Dockerfile
+    image: homepage_pmc:v2.0
+    container_name: homepage
+    labels:
+      # locally built image, no registry to check -> exclude from WUD
+      wud.watch: "false"
+    ports:
+      - 3083:3000
+    volumes:
+      - /home/pchimbolo/dockers/homepage/config:/app/config # Make sure your local config directory exists
+      - /var/run/docker.sock:/var/run/docker.sock # (optional) For docker integrations
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: dashboard.chimbolo.cloud, 192.168.1.208:3083, localhost:3083 # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
+      NODE_TLS_REJECT_UNAUTHORIZED: "0" # Allow self-signed certs (Proxmox)
+    restart: unless-stopped
