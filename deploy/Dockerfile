@@ -8,10 +8,14 @@ WORKDIR /app
 COPY homepage-src/ .
 RUN mkdir -p config
 
-# Install dependencies and build
+# Install dependencies, run our customization tests as a gate, then build.
+# The vitest step covers the config-editor + the core files we modify for it
+# (service-helpers/api-response/widget-helpers) — the parts most likely to break
+# on an upstream merge. A failure here fails the build, so a bad merge can't deploy.
 ENV CI=true
 RUN corepack enable && corepack prepare pnpm@10 --activate && \
     pnpm install --frozen-lockfile --prefer-offline && \
+    pnpm vitest run src/utils/config src/utils/config-editor && \
     NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_BUILDTIME=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z") \
     NEXT_PUBLIC_VERSION="pmc-custom" \
