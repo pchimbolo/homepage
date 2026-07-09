@@ -35,22 +35,30 @@ export default function Version({ disableUpdateCheck = false }) {
     cache.put(LATEST_RELEASE_CACHE_KEY, latestRelease, 3600000);
   }
 
+  const versionText = `${version} (${revision.substring(0, 7)}, ${formatDate(buildTime)})`;
+
+  // Only link to an upstream release when this is a real release tag. Custom/fork
+  // builds (e.g. "pmc-custom") have no upstream tag, so link to a configured source
+  // URL (NEXT_PUBLIC_SOURCE_URL) if provided, otherwise show plain text.
+  const sourceUrl = process.env.NEXT_PUBLIC_SOURCE_URL?.length ? process.env.NEXT_PUBLIC_SOURCE_URL : null;
+  const versionHref = validate(version)
+    ? `https://github.com/gethomepage/homepage/releases/tag/${version}`
+    : sourceUrl;
+
   return (
     <div id="version" className="flex flex-row items-center">
       <span className="text-xs text-theme-500 dark:text-theme-400">
-        {version === "main" || version === "dev" || version === "nightly" ? (
-          <>
-            {version} ({revision.substring(0, 7)}, {formatDate(buildTime)})
-          </>
-        ) : (
+        {versionHref ? (
           <a
-            href={`https://github.com/gethomepage/homepage/releases/tag/${version}`}
+            href={versionHref}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-2 text-xs text-theme-500 dark:text-theme-400 flex flex-row items-center"
           >
-            {version} ({revision.substring(0, 7)}, {formatDate(buildTime)})
+            {versionText}
           </a>
+        ) : (
+          <>{versionText}</>
         )}
       </span>
       {!validate(version)

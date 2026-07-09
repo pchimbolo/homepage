@@ -20,6 +20,7 @@ RUN corepack enable && corepack prepare pnpm@10 --activate && \
     NEXT_PUBLIC_BUILDTIME=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z") \
     NEXT_PUBLIC_VERSION="pmc-custom" \
     NEXT_PUBLIC_REVISION="local" \
+    NEXT_PUBLIC_SOURCE_URL="https://github.com/pchimbolo/homepage/tree/config-editor" \
     pnpm run build
 
 # =========================

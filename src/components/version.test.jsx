@@ -65,6 +65,24 @@ describe("components/version", () => {
     expect(links.find((a) => a.getAttribute("href") === "http://example.com/release")).toBeTruthy();
   });
 
+  it("links a non-release version to NEXT_PUBLIC_SOURCE_URL instead of a nonexistent upstream tag", () => {
+    process.env.NEXT_PUBLIC_VERSION = "pmc-custom";
+    process.env.NEXT_PUBLIC_SOURCE_URL = "https://github.com/pchimbolo/homepage/tree/config-editor";
+    cv.validate.mockReturnValue(false);
+    cache.get.mockReturnValue(null);
+    useSWR.mockReturnValue({ data: undefined });
+
+    render(<Version />);
+
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute("href")).toBe("https://github.com/pchimbolo/homepage/tree/config-editor");
+    // Never points at a nonexistent upstream release tag for a custom build.
+    expect(links[0].getAttribute("href")).not.toContain("/releases/tag/");
+
+    delete process.env.NEXT_PUBLIC_SOURCE_URL;
+  });
+
   it("falls back build time to the current date when NEXT_PUBLIC_BUILDTIME is missing", () => {
     vi.useFakeTimers();
     try {
